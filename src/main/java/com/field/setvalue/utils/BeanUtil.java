@@ -2,6 +2,7 @@ package com.field.setvalue.utils;
 
 import com.field.setvalue.annotation.FieldNeedSetValue;
 import com.field.setvalue.annotation.ResultListName;
+import com.field.setvalue.model.PageVO;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -34,7 +35,11 @@ public class BeanUtil implements ApplicationContextAware {
         if (obj instanceof Collection) {
             // 集合
             setField((Collection<?>) obj);
-        } else {
+        } else if (obj instanceof PageVO){
+            // 分页对象
+            PageVO<?> pageVO = (PageVO<?>)obj;
+            setField(pageVO.getList());
+        }else {
             // VO对象
             ResultListName annotation = obj.getClass().getAnnotation(ResultListName.class);
             String listName = annotation == null ? "list" : annotation.collectionName();
