@@ -1,5 +1,6 @@
 package com.field.setvalue.utils;
 
+import com.benwunet.cache.utils.RedisUtil;
 import com.field.setvalue.annotation.FieldNeedSetValue;
 import com.field.setvalue.annotation.ResultListName;
 import com.field.setvalue.model.PageVO;
@@ -8,12 +9,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nonnull;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 字段填充工具
@@ -25,10 +25,15 @@ import java.util.Map;
 public class BeanUtil implements ApplicationContextAware {
 
     private ApplicationContext applicationContext;
+    private final RedisUtil redisUtil;
 
     @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    public void setApplicationContext(@Nonnull ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
+    }
+
+    public BeanUtil(RedisUtil redisUtil) {
+        this.redisUtil = redisUtil;
     }
 
     public void judgeType(Object obj) throws Exception {
@@ -54,8 +59,7 @@ public class BeanUtil implements ApplicationContextAware {
         Class<?> voClass = col.iterator().next().getClass();
         // 获取该VO的属性
         Field[] fields = voClass.getDeclaredFields();
-        // 缓存
-        Map<String, Object> cache = new HashMap<>(16);
+
         // 循环判断该VO的属性带不带@NeedSetValue注解
         for (Field field : fields) {
             FieldNeedSetValue annotation = field.getAnnotation(FieldNeedSetValue.class);
@@ -84,8 +88,8 @@ public class BeanUtil implements ApplicationContextAware {
                 // 调用的方法执行后的返回值
                 Object value;
                 String key = keyPrefix + paramValue;
-                if (cache.containsKey(key)) {
-                    value = cache.get(key);
+                if (redisUtil.get(key) != null) {
+                    value = redisUtil.get(key);
                 } else {
                     value = method.invoke(bean,paramValue);
                     // 判断方法执行后的返回值不为空
@@ -93,7 +97,7 @@ public class BeanUtil implements ApplicationContextAware {
                         Field targetField = value.getClass().getDeclaredField(annotation.targetField());
                         targetField.setAccessible(true);
                         value = targetField.get(value);
-                        cache.put(key, value);
+                        redisUtil.set(key, value);
                     }
                 }
                 field.set(obj, value);
